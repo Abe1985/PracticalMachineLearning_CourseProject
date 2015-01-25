@@ -1,0 +1,103 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Abe1985"
+date: "Sunday, December 14, 2014"
+output: html_document
+---
+##Introduction
+
+This is an R Markdown document that describes my analysis and my code that predicts how well people do a certain exercise. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal was to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).This was documented by the the "classe" variable. For more details on the data and how it was collected see the Appendix. 
+
+The Model was obtained by random forest using cross validation. The in sample error rate is 0.004% and the estimated out of sample error is 0.02%. 
+
+##Executive summary 
+
+This file describes how the prediction of the manner in which subjects did exercise was conducted and how well it works. In the dataset used, I used the following variables of the training set to predict it. The prediction model was used to predict 20 different test cases. 
+
+##Data preperation
+
+
+**1st removing missing values**
+
+First, I read the training set into R and removed the missing values, that are represented by NAs:
+```{r, cache=TRUE}
+library(caret)
+trainraw <- read.csv("pml-training.csv")
+colneeded <- c() #creates an empty vector that will contain all columns needed
+k <- 0 #variable needed to count 
+#if the column contains more than 19 Na's it will be excluded in our count. Only the number 
+#of the columns with fewerer NA's will be stored
+for(i in 1:length(names(trainraw))){
+        if(sum(is.na(trainraw[i]))>19){next}
+        else{ k <- k + 1
+                colneeded[[k]] <- i}
+        }
+trains <- trainraw[,colneeded]
+sum(is.na(trains)) #make sure no Nas are left
+```
+The training set has 60 values left that contain values. Now we need to identify those variables that can be useful for predicting the effort with which the excersive was performed. 
+
+
+**2nd remove near zero values**
+
+```{r, cache=TRUE}
+library(caret)
+nsv <- nearZeroVar(trains, saveMetrics=FALSE)
+#all numbers of the variables that are near zero are stored in nsv
+trainset <- trains[,(-nsv)]
+```
+The commands above will delete all columns that contain near zero values, meaning variables that nearly remain the same over all subjects and are therefore useless for prediction. 
+
+
+**3rd define factor variable**
+
+The outcome is represented by the "classe" variable. It can take the value of 6 different classes and is therefore a factor variable. 
+```{r}
+trainset$classe <- as.factor(trainset$classe)
+```
+
+
+**4th split dataset**
+
+In order to evaluate the model and evaluate the error rate, I split the data in a testing and a training set: 
+```{r, cache=TRUE}
+library(randomForest)
+set.seed(444)
+inTrain <- createDataPartition(y=trainset$classe, p=0.75, list=FALSE)
+training <- trainset[inTrain,]
+testing <- trainset[-inTrain,]
+```
+
+##Prediction Model
+
+Because with randomforest it is very likely to overfit the model it is important to use cross validation (cv). I used the trControl argument to include cv. 
+```{r, cache=TRUE}
+modelfit <- train(as.factor(classe) ~., method="rf", trControl = trainControl(method="cv", number=3), data=training)
+```
+
+```{r, cache=TRUE}
+getTree(modelfit$finalModel,k=1)         
+```
+
+
+##Error rate
+
+```{r, cache=TRUE}
+modelfit$finalModel
+```
+
+The in sample error is below 0.004%. I did a prediction on my testset: 
+```{r, cache=TRUE}
+pred <- predict(modelfit, newdata=testing)
+table(pred,testing$classe)
+```
+The model did a perpect fit, so that the sample error for my testset was 0.0%.
+
+The out of sample error is estimated to be 0.02%. I guess that it might slighly larger due to overfitting. 
+
+##Appendix
+
+The test and the training set were provided from <http://groupware.les.inf.puc-rio.br/har> and are available here: 
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
