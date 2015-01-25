@@ -2,7 +2,7 @@
 title: "Prediction Assignment Writeup"
 author: "Abe1985"
 date: "Sunday, December 14, 2014"
-output: html_document
+output: pdf_document
 ---
 ##Introduction
 
